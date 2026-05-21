@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>飞机胎压检查系统（机务专用）</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Microsoft Yahei", Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+        }
+        .upload-area input {
+            margin: 15px 0;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .preview {
+            margin: 20px auto;
+            max-width: 400px;
+        }
+        .preview img {
+            width: 100%;
+            border-radius: 5px;
+        }
+        /* 胎压输入框区域 */
+        .tire-input-section {
+            margin: 25px 0;
+            padding: 20px;
+            border-left: 4px solid #27ae60;
+            background-color: #f8f9fa;
+            border-radius: 0 5px 5px 0;
+        }
+        .tire-section-title {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 20px 0 10px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db;
+        }
+        .tire-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 15px auto;
+            max-width: 800px;
+        }
+        .tire-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 12px 10px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #bdc3c7;
+        }
+        .tire-item.front {
+            border-color: #e74c3c;
+            background: #fdf2f2;
+        }
+        .tire-item.main-left {
+            border-color: #27ae60;
+            background: #f2fdf7;
+        }
+        .tire-item.main-right {
+            border-color: #3498db;
+            background: #f2f7fd;
+        }
+        .tire-item.empty {
+            background: transparent;
+            border: none;
+        }
+        .tire-item label {
+            font-size: 13px;
+            color: #34495e;
+            font-weight: bold;
+        }
+        .tire-item input {
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 16px;
+            width: 70px;
+        }
+        .tire-item input:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        /* 调整按钮 */
+        .adjust-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-left: 5px;
+        }
+        .adjust-btn {
+            width: 30px;
+            height: 20px;
+            padding: 0;
+            font-size: 14px;
+            line-height: 1;
+        }
+        .tire-row-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* 结果区域 */
+        .result-section {
+            margin: 25px 0;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            background-color: #f8f9fa;
+            border-radius: 0 5px 5px 0;
+        }
+        .status-pass {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .status-fail {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .suggestion {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e8f4fc;
+            border-radius: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>飞机胎压自动检查系统（机务专用）</h1>
+
+        <!-- 上传区域 -->
+        <div class="upload-area">
+            <input type="file" id="imageInput" accept="image/*">
+            <button onclick="uploadAndFill()">上传并自动填充胎压</button>
+            <div class="preview" id="preview"></div>
+        </div>
+
+        <!-- 胎压输入区域（B777布局：4列×4行） -->
+        <div class="tire-input-section" id="tireInputArea">
+            <h3>🛞 胎压数据（可修改/补全）</h3>
+            <p style="color: #7f8c8d; margin-bottom:15px;">B777飞机轮胎布局：前轮居中 → 主轮1-12号（从机头到机尾）</p>
+            
+             <div class="tire-grid">
+                <!-- 第1行：前轮居中 -->
+                <div class="tire-item empty"></div>
+                <div class="tire-item front">
+                    <label>前轮 L</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire0" placeholder="213" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire0', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire0', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item front">
+                    <label>前轮 R</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire1" placeholder="212" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire1', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire1', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item empty"></div>
+
+                <!-- 第2行：1-4号轮（左上→右上） -->
+                <div class="tire-item main-left">
+                    <label>1号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire2" placeholder="213" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire2', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire2', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-left">
+                    <label>2号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire3" placeholder="211" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire3', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire3', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-right">
+                    <label>3号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire4" placeholder="215" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire4', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire4', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-right">
+                    <label>4号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire5" placeholder="218" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire5', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire5', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 第3行：5-8号轮（左→右） -->
+                <div class="tire-item main-left">
+                    <label>5号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire6" placeholder="213" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire6', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire6', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-left">
+                    <label>6号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire7" placeholder="214" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire7', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire7', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-right">
+                    <label>7号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire8" placeholder="212" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire8', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire8', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-right">
+                    <label>8号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire9" placeholder="211" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire9', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire9', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 第4行：9-12号轮（左→右） -->
+                <div class="tire-item main-left">
+                    <label>9号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire10" placeholder="214" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire10', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire10', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-left">
+                    <label>10号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire11" placeholder="212" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire11', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire11', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-right">
+                    <label>11号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire12" placeholder="213" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire12', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire12', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tire-item main-right">
+                    <label>12号轮</label>
+                    <div class="tire-row-wrapper">
+                        <input type="number" id="tire13" placeholder="214" min="200" max="250">
+                        <div class="adjust-btns">
+                            <button class="adjust-btn" onclick="adjustValue('tire13', 1)">▲</button>
+                            <button class="adjust-btn" onclick="adjustValue('tire13', -1)">▼</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="submitAndCheck()">提交并执行规则校验</button>
+        </div>
+
+        <!-- 校验结果区域 -->
+        <div id="result" class="hidden">
+            <!-- 规则1检查：低于218PSI -->
+            <div class="result-section">
+                <h3>⚠️ 规则1检查（压力≥218PSI）</h3>
+                <p id="rule1Status"></p>
+                <div class="suggestion" id="rule1Suggestion"></div>
+            </div>
+
+            <!-- 前轮检查结果 -->
+            <div class="result-section">
+                <h3>🛞 前轮检查结果</h3>
+                <p><strong>胎压数据：</strong> <span id="frontCheckTires"></span></p>
+                <p><strong>差值：</strong> <span id="frontDiff"></span> PSI</p>
+                <p><strong>差值比例：</strong> <span id="frontRatio"></span>%</p>
+                <div class="suggestion">
+                    <strong>处理建议：</strong> <span id="frontSuggestion"></span>
+                </div>
+            </div>
+
+            <!-- 主轮检查结果 -->
+            <div class="result-section">
+                <h3>🛞 主轮检查结果</h3>
+                <p><strong>最低胎压：</strong> <span id="mainMin"></span> PSI</p>
+                <p><strong>其余11个主轮平均胎压：</strong> <span id="mainAvg"></span> PSI</p>
+                <p><strong>差值：</strong> <span id="mainDiff"></span> PSI</p>
+                <p><strong>差值比例：</strong> <span id="mainRatio"></span>%</p>
+                <div class="suggestion">
+                    <strong>处理建议：</strong> <span id="mainSuggestion"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 调整胎压值
+        function adjustValue(id, delta) {
+            const input = document.getElementById(id);
+            let val = parseInt(input.value) || 0;
+            val += delta;
+            if (val >= 200 && val <= 250) {
+                input.value = val;
+            }
+        }
+
+        // 上传图片，OCR识别后自动填充输入框
+        function uploadAndFill() {
+            const file = document.getElementById('imageInput').files[0];
+            if (!file) {
+                alert("请选择胎压显示屏图片");
+                return;
+            }
+
+            // 显示图片预览
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('preview').innerHTML = `<img src="${e.target.result}" alt="预览图片">`;
+            }
+            reader.readAsDataURL(file);
+
+            // 上传到服务器进行OCR识别
+            const formData = new FormData();
+            formData.append('image', file);
+
+            fetch('/ocr_fill', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`服务器响应错误: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    alert("识别失败：" + data.msg);
+                    return;
+                }
+
+                // 自动填充识别到的胎压数据到输入框
+                const pressures = data.tire_pressures;
+                
+                // 确保14个轮子都有值
+                for (let i = 0; i < 14; i++) {
+                    const input = document.getElementById(`tire${i}`);
+                    if (pressures[i]) {
+                        input.value = pressures[i];
+                    } else {
+                        // 如果没有识别到，保留原值或清空
+                        input.value = input.value || '';
+                    }
+                }
+
+                // 检查识别数量
+                const validCount = pressures.filter(p => p > 0).length;
+                if (validCount < 14) {
+                    alert(`⚠️ 识别到 ${validCount} 个胎压值，请检查并补全剩余 ${14 - validCount} 个轮子的数据`);
+                } else {
+                    alert("✅ 识别完成！已自动填充14个轮子的数据");
+                }
+            })
+            .catch(err => {
+                alert("请求失败：" + err.message);
+                console.error(err);
+            });
+        }
+
+        // 提交用户补全后的胎压数据，执行规则校验
+        function submitAndCheck() {
+            // 收集所有输入框的值
+            const pressures = [];
+            for (let i = 0; i < 14; i++) {
+                const val = document.getElementById(`tire${i}`).value;
+                if (!val) {
+                    alert(`请补全第${i+1}个胎压数据`);
+                    return;
+                }
+                pressures.push(parseInt(val));
+            }
+
+            // 提交到服务器执行规则判断
+            fetch('/check_rules', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pressures: pressures })
+            })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`服务器响应错误: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    alert("校验失败：" + data.msg);
+                    return;
+                }
+
+                // 显示结果区域
+                document.getElementById('result').classList.remove('hidden');
+
+                // 规则1检查
+                if (data.rule1.has_low) {
+                    document.getElementById('rule1Status').innerHTML = `<span class="status-fail">存在低于218PSI的机轮</span>`;
+                    document.getElementById('rule1Suggestion').innerHTML = `需检查：${data.rule1.tires.join('、')}<br>${data.rule1.suggestion}`;
+                } else {
+                    document.getElementById('rule1Status').innerHTML = `<span class="status-pass">所有机轮压力均≥218PSI</span>`;
+                    document.getElementById('rule1Suggestion').textContent = data.rule1.suggestion;
+                }
+
+                // 前轮检查
+                document.getElementById('frontCheckTires').textContent = data.front_check.tires.join(' / ') + ' PSI';
+                document.getElementById('frontDiff').textContent = data.front_check.difference;
+                document.getElementById('frontRatio').textContent = data.front_check.ratio;
+                document.getElementById('frontSuggestion').textContent = data.front_check.suggestion;
+
+                // 主轮检查
+                document.getElementById('mainMin').textContent = data.main_check.min_pressure;
+                document.getElementById('mainAvg').textContent = data.main_check.avg_other_pressure;
+                document.getElementById('mainDiff').textContent = data.main_check.difference;
+                document.getElementById('mainRatio').textContent = data.main_check.ratio;
+                document.getElementById('mainSuggestion').textContent = data.main_check.suggestion;
+            })
+            .catch(err => {
+                alert("请求失败：" + err.message);
+                console.error(err);
+            });
+        }
+    </script>
+</body>
+</html>
